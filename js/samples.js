@@ -4,7 +4,7 @@
  * Safety: all addresses use domains reserved for documentation and testing
  * (".example", "example.com", "example.net", ".test", ".invalid") or the
  * documentation-only IP range 192.0.2.x, so none of them lead anywhere real.
- * The single short link uses a made-up path that is not a working link, and
+ * Short and click-tracking links use made-up paths that are not working links, and
  * the analyser only ever displays links as plain text, never as clickable links.
  */
 (function (global) {
@@ -163,6 +163,50 @@
         'See you there,',
         'Alex',
         'Riverside Library (fictional organisation)'
+      ].join('\n')
+    },
+    {
+      id: 'marketing',
+      label: 'Legitimate marketing email',
+      // A raw "Show original" style email: encoded (quoted-printable) HTML with
+      // click-tracking links, sales language and a receipt. It should be Low Risk.
+      text: [
+        'Delivered-To: sam@example.com',
+        'Authentication-Results: mx.example.com;',
+        '       dkim=pass header.i=@quickbite.example header.s=s1;',
+        '       spf=pass smtp.mailfrom=bounces+829@em.quickbite.example;',
+        '       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=quickbite.example',
+        'Return-Path: <bounces+829-sam=example.com@em.quickbite.example>',
+        'From: QuickBite <no-reply@quickbite.example>',
+        'Reply-To: QuickBite Support <support@quickbite.example>',
+        'Subject: =?UTF-8?Q?Your_QuickPass_offer_ends_today_=F0=9F=8E=89?=',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="qb-demo"',
+        '',
+        '--qb-demo',
+        'Content-Type: text/plain; charset=utf-8',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        'Hi Sam, your QuickPass offer ends today! Act now for $0 delivery fees.',
+        '',
+        '--qb-demo',
+        'Content-Type: text/html; charset=utf-8',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        '<html><head><style>.btn{background:#ff5a36;color:#fff}</style></head><body>',
+        '<p>Hi Sam,</p><p>Your QuickPass offer <b>expires today</b>! Act now to get $0 de=',
+        'livery fees and lower service fees. Limited time only.</p>',
+        '<a class=3D"btn" href=3D"https://u0000.ct.sendgrid.net/ls/click?upn=3DDEMO-=',
+        'not-a-real-link">Claim offer</a>',
+        '<p>Your last order: Total $24.18 &middot; <a href=3D"https://click.quickbite.example=',
+        '/receipt/DEMO">View receipt</a></p>',
+        '<p>Questions? Visit <a href=3D"https://u0000.ct.sendgrid.net/ls/click?upn=3DDEMO2">ww=',
+        'w.quickbite.example</a></p>',
+        '<p style=3D"font-size:12px">QuickBite (fictional company) &middot; <a href=3D"https://www=',
+        '.quickbite.example/unsubscribe">Unsubscribe</a></p>',
+        '<img src=3D"https://u0000.ct.sendgrid.net/wf/open?upn=3Dpixel" width=3D"1" height=3D"1">',
+        '</body></html>',
+        '--qb-demo--'
       ].join('\n')
     }
   ];

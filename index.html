@@ -57,13 +57,18 @@
         </div>
 
         <label for="email-input" class="sr-only">Paste the full email here</label>
-        <textarea id="email-input" spellcheck="false" placeholder="Paste the email here, including headers if you have them (From, Reply-To, Authentication-Results...).&#10;&#10;Tip: in most mail apps, &quot;Show original&quot; or &quot;View source&quot; shows the full headers."></textarea>
+        <textarea id="email-input" spellcheck="false" placeholder="Paste the email here, including headers if you have them (From, Reply-To, Authentication-Results...).&#10;&#10;Best results: paste the full original (Gmail: More ⋮ → Show original), or open a saved .eml file. Encoded and HTML emails are decoded automatically."></textarea>
 
         <div class="actions">
           <button type="button" id="analyse-btn" class="btn btn-primary">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Analyse Email
           </button>
+          <button type="button" id="file-btn" class="btn btn-ghost">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5z M14 3v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            Open .eml file
+          </button>
+          <input type="file" id="file-input" accept=".eml,.txt,.msg,message/rfc822,text/plain" hidden>
           <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
           <span class="muted small kbd-hint">or press <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
         </div>
@@ -119,6 +124,12 @@
             <div id="indicator-list" class="indicator-list"></div>
           </div>
 
+          <div class="block" id="trust-block" hidden>
+            <h3>Reassuring signs <span class="count" id="trust-count">0</span></h3>
+            <p class="muted small">These take points away. They show where the email really came from, not whether its request is safe.</p>
+            <div id="trust-list" class="indicator-list"></div>
+          </div>
+
           <div class="block">
             <h3>Score breakdown</h3>
             <table class="breakdown" id="breakdown"></table>
@@ -130,7 +141,7 @@
           </div>
 
           <details class="block highlight-block">
-            <summary>Show the email with warning signs highlighted</summary>
+            <summary>Show the email as analysed, with signs highlighted</summary>
             <pre class="highlighted" id="highlighted"></pre>
           </details>
 
@@ -143,7 +154,13 @@
 
     <section class="card info-card" aria-labelledby="how-title">
       <h2 id="how-title">How the score works</h2>
-      <p>There is no hidden formula. Each rule below looks for one warning sign. If it is found, its points are added once (no matter how many times it appears). The total is capped at 100.</p>
+      <p>There is no hidden formula. Each rule below looks for one sign. If it is found, its points are added once (no matter how many times it appears). Reassuring signs take points away.</p>
+      <ul class="how-list">
+        <li><strong>Raw emails are decoded first.</strong> Encoded text and HTML code are turned back into what you would actually see, so only the real message is checked.</li>
+        <li><strong>High Risk needs a dangerous sign</strong> (marked <span class="danger-tag">Dangerous</span>): a request for a password, code or payment, a risky attachment, a misleading link, or a forged or look-alike sender. Without one, the score stops at 59.</li>
+        <li><strong>A verified sender with no dangerous sign stays Low Risk</strong> (29 or below). This is why ordinary marketing and receipts from real companies are not flagged.</li>
+        <li><strong>A verified sender cannot cancel out danger.</strong> If a dangerous sign is present, reassuring signs do not count, because hacked accounts and scammers' own domains can pass these checks too.</li>
+      </ul>
       <div class="table-scroll">
         <table class="rules-table" id="rules-table">
           <thead><tr><th>Warning sign</th><th>Category</th><th class="num">Points</th></tr></thead>

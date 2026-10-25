@@ -54,12 +54,18 @@
   // ---- Rules table ("How the score works") -------------------------------
   var rulesBody = document.querySelector('#rules-table tbody');
   A.RULES.forEach(function (r) {
-    rulesBody.appendChild(el('tr', null, [
-      el('td', null, [el('strong', { text: r.name }), el('span', { class: 'rule-why', text: r.why })]),
+    rulesBody.appendChild(el('tr', { class: r.trust ? 'trust-row' : '' }, [
+      el('td', null, [
+        el('strong', { text: r.name }),
+        r.danger ? el('span', { class: 'danger-tag', text: 'Dangerous' }) : null,
+        el('span', { class: 'rule-why', text: r.why })
+      ]),
       el('td', { text: r.category }),
-      el('td', { class: 'num', text: '+' + r.points })
+      el('td', { class: 'num', text: signed(r.points) })
     ]));
   });
+
+  function signed(n) { return n > 0 ? '+' + n : n < 0 ? '\u2212' + Math.abs(n) : '0'; }
 
   // ---- Input events -------------------------------------------------------
   function updateCount() {
@@ -71,6 +77,26 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
   });
   analyseBtn.addEventListener('click', run);
+
+  // ---- Open a saved .eml file (read locally, never uploaded) -------------
+  var fileInput = document.getElementById('file-input');
+  document.getElementById('file-btn').addEventListener('click', function () { fileInput.click(); });
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+    fileInput.value = '';
+  });
+  input.addEventListener('dragover', function (e) { e.preventDefault(); input.classList.add('dragging'); });
+  input.addEventListener('dragleave', function () { input.classList.remove('dragging'); });
+  input.addEventListener('drop', function (e) {
+    input.classList.remove('dragging');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) { e.preventDefault(); loadFile(e.dataTransfer.files[0]); }
+  });
+  function loadFile(file) {
+    if (file.size > 15 * 1024 * 1024) { alert('That file is over 15 MB. Please choose a smaller email file.'); return; }
+    var reader = new FileReader();
+    reader.onload = function () { input.value = String(reader.result || ''); updateCount(); run(); };
+    reader.readAsText(file);
+  }
   clearBtn.addEventListener('click', function () {
     input.value = '';
     updateCount();
@@ -88,11 +114,10 @@
       setTimeout(function () { input.classList.remove('shake'); }, 400);
       return;
     }
-    var result = A.analyse(text);
-    render(result, text.replace(/\r\n?/g, '\n'));
+    render(A.analyse(text));
   }
 
-  function render(r, text) {
+  function render(r) {
     emptyState.hidden = true;
     report.hidden = false;
     report.setAttribute('data-level', r.band.level);
@@ -112,17 +137,20 @@
     // Quick facts
     var stats = document.getElementById('stats');
     clear(stats);
+    var a = r.stats.auth;
     var authText = !r.stats.authFound ? 'Not included'
-      : r.stats.authPasses.length ? r.stats.authPasses.map(function (s) { return s.toUpperCase(); }).join(', ') + ' passed'
-      : 'No passes';
+      : ['spf', 'dkim', 'dmarc'].map(function (k) { return k.toUpperCase() + ' ' + (a[k] || 'n/a'); }).join(' · ');
+    var senderText = !r.stats.sender ? 'Unknown (no From header)'
+      : r.stats.verified ? r.stats.sender + ' (verified)' : r.stats.sender + ' (not verified)';
     [
       ['Warning signs', String(r.indicators.length)],
       ['Links found', String(r.stats.links)],
       ['Attachment names', String(r.stats.attachments)],
-      ['Email headers', r.stats.headersFound ? 'Included' : 'Not included'],
-      ['SPF / DKIM / DMARC', authText]
+      ['Email format', !r.stats.headersFound ? 'Text only' : r.stats.decoded ? 'Raw email, decoded' : 'With headers'],
+      ['Sender', senderText, true],
+      ['SPF / DKIM / DMARC', authText, true]
     ].forEach(function (s) {
-      stats.appendChild(el('div', { class: 'stat' }, [el('span', { class: 'stat-label', text: s[0] }), el('span', { class: 'stat-value', text: s[1] })]));
+      stats.appendChild(el('div', { class: s[2] ? 'stat stat-wide' : 'stat' }, [el('span', { class: 'stat-label', text: s[0] }), el('span', { class: 'stat-value', text: s[1] })]));
     });
 
     // Indicators
@@ -135,39 +163,59 @@
         el('span', { text: ' That is a good sign, but it does not prove the email is genuine. Stay cautious with any request involving money, passwords or codes.' })
       ]));
     }
-    r.indicators.forEach(function (ind, i) {
-      var evidence = el('ul', { class: 'evidence' }, ind.evidence.map(function (e) {
-        return el('li', null, [el('code', { text: shorten(e.text, 140) }), e.note ? el('span', { class: 'ev-note', text: e.note }) : null]);
-      }));
-      var card = el('details', { class: 'indicator sev-' + severity(ind.points) }, [
-        el('summary', null, [
-          el('span', { class: 'ind-points', text: '+' + ind.points }),
-          el('span', { class: 'ind-main' }, [el('span', { class: 'ind-name', text: ind.name }), el('span', { class: 'ind-cat', text: ind.category })]),
-          el('span', { class: 'chev', 'aria-hidden': 'true' })
-        ]),
-        el('div', { class: 'ind-body' }, [
-          el('p', { class: 'ind-why' }, [el('strong', { text: 'Why this matters: ' }), ind.why]),
-          el('p', { class: 'ind-evlabel', text: 'Found in the email:' }),
-          evidence
-        ])
-      ]);
-      if (i < 2) card.open = true;
-      list.appendChild(card);
-    });
+    r.indicators.forEach(function (ind, i) { list.appendChild(card(ind, i < 2)); });
 
+    var trustBlock = document.getElementById('trust-block');
+    var trustList = document.getElementById('trust-list');
+    clear(trustList);
+    trustBlock.hidden = !r.trust.length;
+    document.getElementById('trust-count').textContent = r.trust.length;
+    r.trust.forEach(function (t) { trustList.appendChild(card(t, false)); });
+    if (r.trustLimited) {
+      trustList.appendChild(el('p', { class: 'muted small', text: 'Because this email contains a dangerous sign, these reassuring signs do not reduce the score. A verified sender can still be a hacked account or a scammer\'s own domain.' }));
+    }
+    renderRest(r);
+  }
+
+  function card(ind, open) {
+    var evidence = el('ul', { class: 'evidence' }, ind.evidence.map(function (e) {
+      return el('li', null, [el('code', { text: shorten(e.text, 140) }), e.note ? el('span', { class: 'ev-note', text: e.note }) : null]);
+    }));
+    var node = el('details', { class: 'indicator sev-' + severity(ind.points) }, [
+      el('summary', null, [
+        el('span', { class: 'ind-points', text: signed(ind.points) }),
+        el('span', { class: 'ind-main' }, [
+          el('span', { class: 'ind-name' }, [ind.name, ind.danger ? el('span', { class: 'danger-tag', text: 'Dangerous' }) : null]),
+          el('span', { class: 'ind-cat', text: ind.category })
+        ]),
+        el('span', { class: 'chev', 'aria-hidden': 'true' })
+      ]),
+      el('div', { class: 'ind-body' }, [
+        el('p', { class: 'ind-why' }, [el('strong', { text: ind.points < 0 ? 'Why this helps: ' : 'Why this matters: ' }), ind.why]),
+        el('p', { class: 'ind-evlabel', text: 'Found in the email:' }),
+        evidence
+      ])
+    ]);
+    node.open = !!open;
+    return node;
+  }
+
+  function renderRest(r) {
     // Breakdown table
     var table = document.getElementById('breakdown');
     clear(table);
     var tbody = el('tbody');
-    r.indicators.forEach(function (ind) {
-      tbody.appendChild(el('tr', null, [el('td', { text: ind.name }), el('td', { class: 'num', text: '+' + ind.points })]));
+    r.indicators.concat(r.trust).forEach(function (ind) {
+      tbody.appendChild(el('tr', { class: ind.points < 0 ? 'trust-row' : '' }, [el('td', { text: ind.name }), el('td', { class: 'num', text: signed(ind.points) })]));
     });
-    if (!r.indicators.length) tbody.appendChild(el('tr', null, [el('td', { text: 'No warning signs' }), el('td', { class: 'num', text: '0' })]));
+    if (!r.indicators.length && !r.trust.length) tbody.appendChild(el('tr', null, [el('td', { text: 'No signs found' }), el('td', { class: 'num', text: '0' })]));
     var foot = el('tfoot');
-    if (r.rawTotal > 100) {
-      foot.appendChild(el('tr', { class: 'sub' }, [el('td', { text: 'Points added up' }), el('td', { class: 'num', text: String(r.rawTotal) })]));
-      foot.appendChild(el('tr', { class: 'sub' }, [el('td', { text: 'Capped at the maximum' }), el('td', { class: 'num', text: '100' })]));
-    }
+    function sub(label, value) { foot.appendChild(el('tr', { class: 'sub' }, [el('td', { text: label }), el('td', { class: 'num', text: value })])); }
+    if (r.trustLimited) sub('Reassuring signs not counted (dangerous sign present)', '0');
+    if (r.cap || r.rawTotal > 100 || r.rawTotal < 0 || r.trustLimited) sub('Points added up', signed(r.rawTotal));
+    if (r.cap) sub('Limited to ' + r.cap.limit + ': ' + r.cap.reason, String(r.cap.limit));
+    else if (r.rawTotal > 100) sub('Capped at the maximum', '100');
+    else if (r.rawTotal < 0) sub('Cannot go below zero', '0');
     foot.appendChild(el('tr', null, [el('td', { text: 'Risk score' }), el('td', { class: 'num', text: r.score + ' / 100' })]));
     table.appendChild(tbody);
     table.appendChild(foot);
@@ -178,10 +226,10 @@
     r.recommendations.forEach(function (t) { recs.appendChild(el('li', { text: t })); });
 
     // Highlighted copy of the email
-    renderHighlights(document.getElementById('highlighted'), text, r.indicators);
+    renderHighlights(document.getElementById('highlighted'), r.analysedText, r.indicators.concat(r.trust));
   }
 
-  function severity(points) { return points >= 20 ? 'high' : points >= 15 ? 'medium' : 'low'; }
+  function severity(points) { return points < 0 ? 'trust' : points >= 20 ? 'high' : points >= 15 ? 'medium' : 'low'; }
 
   function shorten(s, n) { s = s.replace(/\s+/g, ' '); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
@@ -215,7 +263,7 @@
       if (last && r.s < last.e) {
         last.e = Math.max(last.e, r.e);
         if (last.labels.indexOf(r.label) === -1) last.labels.push(r.label);
-        if (r.sev === 'high' || (r.sev === 'medium' && last.sev === 'low')) last.sev = r.sev;
+        if (r.sev === 'high' || (r.sev === 'medium' && (last.sev === 'low' || last.sev === 'trust'))) last.sev = r.sev;
       } else {
         merged.push({ s: r.s, e: r.e, labels: [r.label], sev: r.sev });
       }

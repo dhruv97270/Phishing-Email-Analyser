@@ -270,3 +270,22 @@ th { font-size: .72rem; color: var(--slate); text-transform: uppercase; letter-s
 /* Final layout touches */
 .report { scroll-margin-top: 84px; }
 .stat:last-child:nth-child(odd), .stat:last-child:nth-child(5) { grid-column: 1 / -1; }
+
+/* Version 2: reassuring signs, dangerous tags, file loading */
+.indicator.sev-trust { --sev: var(--teal); --sev-text: var(--low-text); background: #E8F8F4; }
+.hl-trust { background: rgba(25, 194, 166, .2); box-shadow: inset 0 -2px 0 var(--teal); }
+.danger-tag {
+  display: inline-block; margin-left: 8px; vertical-align: 2px;
+  font-family: Inter, system-ui, sans-serif; font-size: .62rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; color: var(--high-text); background: #FFE7E1;
+}
+.rules-table .danger-tag { margin-left: 6px; }
+tr.trust-row .num { color: var(--low-text); }
+.how-list { margin: 0 0 18px; padding-left: 20px; color: var(--slate); }
+.how-list li { margin: 6px 0; }
+.how-list strong { color: var(--ink); }
+.stat-value { overflow-wrap: anywhere; }
+textarea.dragging { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(124, 92, 255, .25); background: #F4F1FF; }
+.stat-wide { grid-column: span 2; }
+.stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

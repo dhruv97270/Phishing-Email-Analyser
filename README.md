@@ -35,32 +35,46 @@ Two principles shaped every design decision:
 ## Features
 
 - **Risk score (0–100)** with a colour-coded gauge and three bands: Low (0–29), Suspicious (30–59), High (60–100)
-- **25 detection rules** across six categories (see below), each with a plain-English "why this matters"
+- **27 warning-sign rules and 3 reassuring-sign rules**, each with a plain-English "why this matters"
+- **Raw email decoding:** paste "Show original" or open a `.eml` file; quoted-printable, base64, MIME parts and HTML are decoded locally so only the visible message is checked
+- **Context-aware scoring:** High Risk requires a *dangerous* sign (credential or payment request, risky attachment, misleading link, forged or look-alike sender), and a verified sender with nothing dangerous stays Low Risk, which keeps normal marketing and receipts from being flagged
+- **Sender verification:** SPF, DKIM and DMARC results are checked for *alignment* with the From domain; aligned passes lower the score
+- **Look-alike domain detection:** letter swaps and one-letter typos of 20+ brands (`paypa1`, `rnicrosoft`, `d00rdash`)
+- **Marketing-aware link checks:** links to the sender's own domain and known click-tracking services (SendGrid, Mailchimp, Amazon SES and others) are treated as normal
 - **Evidence view:** the exact phrase, link, file name or header behind every finding, plus a highlighted copy of the email
 - **Transparent maths:** a score breakdown table and a full list of every rule and its points
 - **Tailored recommendations** (e.g. "call the supplier on a known number" for bank-detail changes, "never share a code" for MFA requests)
 - **Header analysis** when headers are pasted: From vs Reply-To and Return-Path, plus SPF, DKIM and DMARC results
-- **Six fictional demo emails:** obvious phishing, sophisticated phishing, fake Microsoft 365 warning, fake parcel delivery, fake invoice / BEC, and a legitimate email
+- **Seven fictional demo emails:** obvious phishing, sophisticated phishing, fake Microsoft 365 warning, fake parcel delivery, fake invoice / BEC, a legitimate email, and a raw legitimate marketing email
 - **Responsive design** for desktop and mobile
 
-| Highlighted evidence | Legitimate email (Low Risk) | Mobile |
+| Highlighted evidence | Legitimate marketing email (Low Risk) | Mobile |
 |---|---|---|
-| ![Evidence highlighted in a BEC email](docs/screenshots/highlighted-evidence.png) | ![Legitimate email scored 0](docs/screenshots/report-low-risk.png) | ![Mobile layout](docs/screenshots/mobile.png) |
+| ![Evidence highlighted in a BEC email](docs/screenshots/highlighted-evidence.png) | ![Raw marketing email decoded and scored 0](docs/screenshots/report-low-risk.png) | ![Mobile layout](docs/screenshots/mobile.png) |
 
 ## What it detects
 
-| Category | Warning signs (points) |
-|---|---|
-| **Social engineering** | Urgency and pressure (+10) · Threat of suspension or closure (+15) · Secrecy or authority pressure (+10) |
-| **Credential theft** | Password request (+25) · MFA / verification-code request (+25) · Credential-harvesting language (+20) |
-| **Financial fraud** | Gift card / crypto / wire request (+25) · Change of bank details (+25) · Payment or fee request (+10) · Unexpected invoice language (+10) |
-| **Impersonation** | Brand named but not the brand's domain (+15) · Generic greeting (+5) |
-| **Suspicious links** | Raw IP address (+20) · Misleading link text (+20) · Shortened link (+15) · Look-alike or odd domain (+15) |
-| **Attachments** | Executable file (+30) · Enable macros / content (+25) · Macro-enabled Office file (+15) · Double extension, ISO, HTML or archive (+15) |
-| **Headers & authentication** | Reply-To mismatch (+20) · DMARC fail (+20) · SPF fail (+15) · DKIM fail (+15) · Return-Path mismatch (+5) |
+Signs marked ⚠ are **dangerous** signs: an email needs at least one of them to reach High Risk.
 
-Each sign counts **once**, however often it appears, and the total is capped at 100. Password and
-code checks ignore "never" sentences, so *"We will never ask for your password"* does not count
+| Category | Signs (points) |
+|---|---|
+| **Social engineering** | Urgency and pressure (+10) · Threat of suspension or closure (+15) · Secrecy or authority pressure (+10) · Sales-style urgency such as "offer ends today" (+3) |
+| **Credential theft** | ⚠ Password request (+25) · ⚠ MFA / verification-code request (+25) · ⚠ Credential-harvesting language (+20) |
+| **Financial fraud** | ⚠ Gift card / crypto / wire request (+25) · ⚠ Change of bank details (+25) · ⚠ Request to pay a fee or balance (+10) · Invoice language (+5) |
+| **Impersonation** | ⚠ Look-alike domain (+30) · ⚠ Brand claimed but not the brand's domain (+15) · Generic greeting (+5) |
+| **Suspicious links** | ⚠ Raw IP address (+20) · ⚠ Misleading link text (+20) · Shortened link (+15) · Suspicious-looking domain (+15) |
+| **Attachments** | ⚠ Executable file (+30) · ⚠ Enable macros / content (+25) · ⚠ Macro-enabled Office file (+15) · ⚠ Double extension, ISO, HTML or archive (+15) |
+| **Headers & authentication** | ⚠ Reply-To mismatch (+20) · ⚠ DMARC fail (+20) · ⚠ SPF fail (+15) · ⚠ DKIM fail (+15) · Return-Path mismatch (+5) |
+| **Reassuring signs** | DMARC pass aligned with From (−15) · DKIM pass aligned with From (−10) · SPF pass aligned with From (−5) |
+
+**How the total is decided**
+
+1. Each sign counts **once**, however often it appears.
+2. Reassuring signs only count when the sender is verified (DMARC pass aligned with the From domain, not a free-mail or look-alike domain), and **never** when a dangerous sign is present, because hacked accounts and scammers' own domains can pass these checks too.
+3. With no dangerous sign, the score stops at **59** (Suspicious at most), or at **29** (Low Risk) if the sender is verified.
+4. The final score is kept between 0 and 100, and the report shows each of these steps.
+
+Password and code checks ignore "never" sentences, so *"We will never ask for your password"* does not count
 against an email. The full logic, with MITRE ATT&CK mapping, is in
 [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md).
 
@@ -85,6 +99,8 @@ https://dhruv97270.github.io/Phishing-Email-Analyser/ within a minute or two.
 
 **Getting full headers for better results:** Gmail: *More (⋮) → Show original*.
 Outlook desktop: *File → Properties*. Outlook web: *More actions → View → View message source*.
+Or save the message as a `.eml` file (Gmail: *More (⋮) → Download message*; Outlook: drag the email
+to your desktop) and use **Open .eml file**. The file is read locally and never uploaded.
 
 ## Tested results
 
@@ -93,9 +109,14 @@ Outlook desktop: *File → Properties*. Outlook web: *More actions → View → 
 | Obvious phishing | 100 | High Risk |
 | Sophisticated phishing | 80 | High Risk |
 | Fake Microsoft 365 warning | 100 | High Risk |
-| Fake parcel delivery | 65 | High Risk |
+| Fake parcel delivery | 60 | High Risk |
 | Fake invoice / BEC | 100 | High Risk |
 | Legitimate email | 0 | Low Risk |
+| Legitimate marketing email (raw, encoded HTML, click-tracking links) | 0 | Low Risk |
+
+Additional edge-case checks: marketing text pasted without headers scores 3 (Low); a verified
+attacker-owned domain asking for a password still scores 60 (High); a base64-encoded email with an
+`invoice.pdf.exe` attachment scores 70 (High); a `rnicrosoft` sender alone scores 30 (Suspicious).
 
 Verified in Chromium at desktop (1366 px) and mobile (390 px) widths, with zero network requests
 and zero console errors recorded.
@@ -105,6 +126,7 @@ and zero console errors recorded.
 - It reads **text patterns**. A careful attacker can write an email that triggers nothing, and a
   legitimate email can trigger some signs (a real invoice says "invoice").
 - It does not visit links, check domain age or reputation, or scan attachments.
+- A verified sender proves which domain sent the email, not that the domain is trustworthy.
 - Header checks rely on what the pasted headers say.
 
 These are deliberate trade-offs for privacy and simplicity; in a real SOC this tool would sit
@@ -112,8 +134,6 @@ alongside sandboxing, URL reputation and threat-intel lookups.
 
 ## Roadmap
 
-- Upload `.eml` files directly (parsed locally)
-- Look-alike domain detection using edit distance (e.g. `rnicrosoft` vs `microsoft`)
 - Export the report as a PDF case note
 - Optional dark mode
 
