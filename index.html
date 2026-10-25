@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--
+    Content Security Policy: a safety rule enforced by the browser itself.
+    It only allows this page to load its own files and forbids ANY network
+    connection, form submission or outside resource. Even if there were a bug,
+    the browser would refuse to send your email anywhere.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <meta name="theme-color" content="#14161B">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Educational phishing triage tool. Paste a suspicious email and see the warning signs. Analysis happens entirely in your browser.">
+  <title>Phishing Email Analyser</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23FF5A36' d='M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <div class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z" fill="currentColor" opacity=".18"/>
+          <path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M8 10.5h8v5H8z M10 10.5V9a2 2 0 0 1 4 0v1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <span class="brand-name">Phishing Email Analyser</span>
+          <span class="brand-sub">Educational triage tool</span>
+        </div>
+      </div>
+      <span class="local-badge" title="Your email never leaves this device">
+        <span class="dot" aria-hidden="true"></span> 100% local analysis
+      </span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Spot the warning signs before you click.</h1>
+      <p>Paste a suspicious email below. The analyser checks it for common phishing and social-engineering tricks and explains every warning sign it finds, all inside your browser.</p>
+    </section>
+
+    <div class="notice notice-warn" role="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3zm0 6v5m0 3v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <p><strong>Do not click links or open attachments to "test" them.</strong> Copy the email text instead. This tool reads the text only and never visits links or opens files.</p>
+    </div>
+
+    <div class="layout">
+      <!-- Input -->
+      <section class="card input-card" aria-labelledby="input-title">
+        <div class="card-head">
+          <h2 id="input-title">Email to analyse</h2>
+          <span class="muted small" id="char-count">0 characters</span>
+        </div>
+
+        <label for="email-input" class="sr-only">Paste the full email here</label>
+        <textarea id="email-input" spellcheck="false" placeholder="Paste the email here, including headers if you have them (From, Reply-To, Authentication-Results...).&#10;&#10;Tip: in most mail apps, &quot;Show original&quot; or &quot;View source&quot; shows the full headers."></textarea>
+
+        <div class="actions">
+          <button type="button" id="analyse-btn" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Analyse Email
+          </button>
+          <button type="button" id="clear-btn" class="btn btn-ghost">Clear</button>
+          <span class="muted small kbd-hint">or press <kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+        </div>
+
+        <div class="samples">
+          <h3>Try a fictional demo email</h3>
+          <div class="chip-row" id="sample-list"></div>
+          <p class="muted small">All demo emails are invented and use reserved example domains that do not lead anywhere.</p>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section class="card result-card" aria-labelledby="result-title" aria-live="polite">
+        <div id="empty-state" class="empty-state">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="8" y="14" width="48" height="36" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+            <path d="m10 18 22 16 22-16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="46" cy="44" r="9" fill="var(--surface)" stroke="currentColor" stroke-width="2.5"/>
+            <path d="m52.5 50.5 5 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <h2 id="result-title">Your report will appear here</h2>
+          <p class="muted">Paste an email or pick a demo, then press <strong>Analyse Email</strong>.</p>
+        </div>
+
+        <div id="report" class="report" hidden>
+          <div class="score-panel">
+            <div class="gauge" id="gauge">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="gauge-track" cx="60" cy="60" r="50"/>
+                <circle class="gauge-fill" id="gauge-fill" cx="60" cy="60" r="50"/>
+              </svg>
+              <div class="gauge-label">
+                <span class="gauge-score" id="score-value">0</span>
+                <span class="gauge-max">/ 100</span>
+              </div>
+            </div>
+            <div class="score-text">
+              <span class="risk-pill" id="risk-pill">Low Risk</span>
+              <p id="risk-summary"></p>
+              <div class="scale" aria-hidden="true">
+                <span class="scale-seg low">0–29 Low</span>
+                <span class="scale-seg medium">30–59 Suspicious</span>
+                <span class="scale-seg high">60–100 High</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats" id="stats"></div>
+
+          <div class="block">
+            <h3>Warning signs found <span class="count" id="indicator-count">0</span></h3>
+            <p class="muted small">Each sign adds a fixed number of points. Expand a card to see the exact text that triggered it.</p>
+            <div id="indicator-list" class="indicator-list"></div>
+          </div>
+
+          <div class="block">
+            <h3>Score breakdown</h3>
+            <table class="breakdown" id="breakdown"></table>
+          </div>
+
+          <div class="block">
+            <h3>What to do next</h3>
+            <ol class="recs" id="recs"></ol>
+          </div>
+
+          <details class="block highlight-block">
+            <summary>Show the email with warning signs highlighted</summary>
+            <pre class="highlighted" id="highlighted"></pre>
+          </details>
+
+          <p class="disclaimer">
+            <strong>This is an educational triage tool, not a verdict.</strong> It looks for common warning signs and cannot determine for certain whether an email is malicious or safe. Always verify important messages independently, using the organisation's official website, app or contact details you already know.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <section class="card info-card" aria-labelledby="how-title">
+      <h2 id="how-title">How the score works</h2>
+      <p>There is no hidden formula. Each rule below looks for one warning sign. If it is found, its points are added once (no matter how many times it appears). The total is capped at 100.</p>
+      <div class="table-scroll">
+        <table class="rules-table" id="rules-table">
+          <thead><tr><th>Warning sign</th><th>Category</th><th class="num">Points</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card info-card privacy" aria-labelledby="privacy-title">
+      <h2 id="privacy-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        Privacy notice
+      </h2>
+      <ul>
+        <li>All analysis happens <strong>locally in your web browser</strong>, on your own device.</li>
+        <li>The email you paste is <strong>never uploaded</strong> to a server, AI service, analytics tool or any outside API.</li>
+        <li>There are no accounts, cookies, tracking or telemetry. Nothing is saved: closing or refreshing the page erases it.</li>
+        <li>The page's security policy blocks all network connections, so it could not send your data even by mistake. You can even use it offline.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p>Phishing Email Analyser · An educational project for learning cybersecurity. Not a substitute for your organisation's security team.</p>
+    </div>
+  </footer>
+
+  <script src="js/analyser.js"></script>
+  <script src="js/samples.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
